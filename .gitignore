@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# pytest
+.pytest_cache/
+.coverage
+
+# NMRPipe data files (potentially large)
+*.ft
+*.ft2
+*.ft3
+*.ft4
+*.fid
+*.ucsf
+*.tab
+
+# macOS
+.DS_Store
+
+# editors
+.idea/
+.vscode/
+*.swp
