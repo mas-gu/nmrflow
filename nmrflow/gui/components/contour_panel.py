@@ -131,6 +131,14 @@ class ContourPanel(QGroupBox):
             neg_color=self._neg_color,
         )
 
+    def set_height(self, value: float):
+        """Set height spinbox to *value* without emitting params_changed."""
+        self._building = True
+        try:
+            self._height.setValue(value)
+        finally:
+            self._building = False
+
     def set_from_args(self, args):
         self._building = True
         try:

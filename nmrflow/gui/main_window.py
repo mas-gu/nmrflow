@@ -261,6 +261,11 @@ class NMRDrawWindow(QMainWindow):
 
         self._spectrum_widget.load_spectrum(self._spectrum, params)
 
+        # Show the actual auto-height value instead of "auto"
+        if params.height == 0.0:
+            noise = self._spectrum.noise_level(0, 0)
+            self._contour_panel.set_height(noise * 3.0)
+
         # Auto-load peak table if -peak flag and companion .tab exists.
         # Strip filemask format specifiers (e.g. %03d) before inferring the .tab path.
         if getattr(args, "show_peaks", False) and args.infile:

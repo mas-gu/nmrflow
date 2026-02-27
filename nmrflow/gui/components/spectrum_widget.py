@@ -67,6 +67,13 @@ class SpectrumWidget(FigureCanvas):
         self._last_x_ppm: float = 0.0
         self._last_y_ppm: float = 0.0
 
+        # Pan state (middle-click drag)
+        self._pan_active: bool = False
+        self._pan_moved: bool = False
+        self._pan_start_px: tuple = (0, 0)
+        self._pan_xlim: tuple = (0.0, 1.0)
+        self._pan_ylim: tuple = (0.0, 1.0)
+
         # Drawn artist handles
         self._contour_collections: list = []
         self._peak_scatter = None
@@ -78,6 +85,7 @@ class SpectrumWidget(FigureCanvas):
 
         self.mpl_connect("motion_notify_event", self._on_motion)
         self.mpl_connect("button_press_event", self._on_press)
+        self.mpl_connect("button_release_event", self._on_release)
         self.mpl_connect("key_press_event", self._on_key)
         self.mpl_connect("scroll_event", self._on_scroll)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -475,20 +483,47 @@ class SpectrumWidget(FigureCanvas):
             self.draw_idle()
 
     def _on_motion(self, event):
+        if self._pan_active:
+            dpx = event.x - self._pan_start_px[0]
+            dpy = event.y - self._pan_start_px[1]
+            if abs(dpx) > 2 or abs(dpy) > 2:
+                self._pan_moved = True
+            bbox = self._ax.get_window_extent()
+            if bbox.width > 0 and bbox.height > 0:
+                dx = -dpx * (self._pan_xlim[1] - self._pan_xlim[0]) / bbox.width
+                dy = -dpy * (self._pan_ylim[1] - self._pan_ylim[0]) / bbox.height
+                self._ax.set_xlim([l + dx for l in self._pan_xlim])
+                self._ax.set_ylim([l + dy for l in self._pan_ylim])
+                if self._slice_mode:
+                    self._redraw_slice()
+                self.draw_idle()
+            return
+
         if event.inaxes != self._ax or event.xdata is None or event.ydata is None:
             return
         self._last_x_ppm = event.xdata
         self._last_y_ppm = event.ydata
         self.cursor_moved.emit(event.xdata, event.ydata)
 
+    def _on_release(self, event):
+        if event.button == 2 and self._pan_active:
+            self._pan_active = False
+            if not self._pan_moved:
+                # Pure click (no drag) → set pivot
+                in_axes = event.inaxes == self._ax and event.xdata is not None
+                x = event.xdata if in_axes else self._last_x_ppm
+                y = event.ydata if in_axes else self._last_y_ppm
+                self.pivot_clicked.emit(x, y)
+            self._pan_moved = False
+
     def _on_press(self, event):
-        # Middle-click: set pivot using event coords if inside axes,
-        # otherwise fall back to last known cursor position.
+        # Middle-click: start pan tracking; pivot is set on release only if no drag occurred.
         if event.button == 2:
-            in_axes = event.inaxes == self._ax and event.xdata is not None
-            x = event.xdata if in_axes else self._last_x_ppm
-            y = event.ydata if in_axes else self._last_y_ppm
-            self.pivot_clicked.emit(x, y)
+            self._pan_active = True
+            self._pan_moved = False
+            self._pan_start_px = (event.x, event.y)
+            self._pan_xlim = self._ax.get_xlim()
+            self._pan_ylim = self._ax.get_ylim()
             return
 
         if event.inaxes != self._ax or event.xdata is None:
